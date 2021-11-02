@@ -6,7 +6,8 @@ use DateTimeInterface;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Model;
+use Jenssegers\Mongodb\Eloquent\Model;
+use Jenssegers\Mongodb\Eloquent\HybridRelations;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Arr;
@@ -33,8 +34,9 @@ class Media extends Model implements Responsable, Htmlable
     use IsSorted;
     use CustomMediaProperties;
     use HasUuid;
+    use HybridRelations;
 
-    protected $table = 'media';
+    protected $collection = 'media';
 
     public const TYPE_OTHER = 'other';
 
