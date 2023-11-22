@@ -3,7 +3,7 @@ title: Installation
 weight: 2
 ---
 
-[Media Library Pro](medialibrary.pro) is a paid add-on package for Laravel Media Library. In order to use it, you must have the base version of media library installed in your project. Here are [the installation instructions for the base version](/docs/laravel-medialibrary/v9/installation-setup).
+[Media Library Pro](medialibrary.pro) is a paid add-on package for Laravel Media Library. In order to use it, you must have the base version of media library installed in your project. Here are [the installation instructions for the base version](/docs/laravel-medialibrary/v10/installation-setup).
 
 ## Installing the base package
 
@@ -12,6 +12,12 @@ weight: 2
 You must buy a license on [the Media Library Pro product page](https://spatie.be/products/media-library-pro) at spatie.be
 
 Single application licenses maybe installed in a single Laravel app. In case you bought the unlimited application license, there are no restrictions. A license comes with one year of upgrades. If a license expires, you are still allowed to use Media Library Pro, but you won't get any updates anymore.
+
+## Current version
+
+The current version of Media Library Pro is v3.
+
+You will find upgrade instructions [here](/docs/laravel-medialibrary/v10/handling-uploads-with-media-library-pro/upgrading).
 
 ## Requiring Media Library Pro
 
@@ -45,10 +51,31 @@ This is the content you should put in `auth.json`:
 }
 ```
 
+
+To be sure you can reach `satis.spatie.be`,  clean your autoloaders before using this command:
+
+```bash
+composer dump-autoload
+```
+
+To validate if Composer can read your auth.json you can run this command:
+
+```bash
+composer config --list --global | grep satis.spatie.be
+```
+
+If you are using [Laravel Forge](https://forge.laravel.com), you don't need to create the `auth.json` file manually. Instead, you can set the credentials on the Composer Package Authentication screen of your server. Fill out the fields with these values:
+
+- Repository URL: `satis.spatie.be`
+- Username: Fill this field with your spatie.be account email address
+- Password: Fill this field with your Media Library Pro license key
+
+![screenshot](/docs/laravel-medialibrary/v10/images/forge.png)
+
 With the configuration above in place, you'll be able to install the Media Library Pro into your project using this command:
 
 ```bash
-composer require "spatie/laravel-medialibrary-pro:^1.0.0"
+composer require "spatie/laravel-medialibrary-pro:^3.0.0"
 ```
 
 ## Prepare the database
@@ -77,12 +104,67 @@ protected function schedule(Schedule $schedule)
 
 ## Add the route macro
 
-To accept temporary uploads, you must add this macro to your routes file.
+To accept temporary uploads via React and Vue, you must add this macro to your routes file. 
+You do not need to register this endpoint when using the Blade/Livewire components.
 
 ```php
 // Probably routes/web.php
 
 Route::mediaLibrary();
+```
+
+This macro will add the routes to controllers that accept file uploads for all components.
+
+#### Only allow authenticated users to upload files
+
+If in your project, you only want authenticated users to upload files, you can put the macro in a group that applies authentication middleware.
+
+```php
+Route::middleware('auth')->group(function() {
+    Route::mediaLibrary();
+});
+```
+
+We highly encourage you to do this, if you only need authenticated users to upload files.
+
+#### Validating mime types
+
+For security purposes, only files that pass [Laravel's `mimes` validation](https://laravel.com/docs/master/validation#rule-mimetypes) with the extensions [mentioned in this class](https://github.com/spatie/laravel-medialibrary-pro/blob/ba6eedd5b2a7f743909b441c0b6fd111d1a73794/src/Support/DefaultAllowedExtensions.php#L5) are allowed by the temporary upload controllers.
+
+If you want your components to accept other mimetypes, add a key `temporary_uploads_allowed_extensions` in the `media-library.php` config file.
+
+```php
+// in config/medialibrary.php
+
+return [
+   // ...
+   
+   'temporary_uploads_allowed_extensions' => [
+        // your extensions
+        ... \Spatie\MediaLibraryPro\Support\DefaultAllowedExtensions::all(), // add this if you want to allow the default ones too
+   ],
+],
+]
+```
+
+#### Rate limiting
+
+To protect you from users that upload too many files, the temporary uploads controllers are rate limited. By default, only 10 files can be upload per minute per ip iddress.
+
+To customize rate limiting, add [a rate limiter](https://laravel.com/docs/master/rate-limiting#introduction) named `medialibrary-pro-uploads`. Typically, this would be done in a service provider.
+
+Here's an example where's we'll allow 15 files:
+
+```php
+// in a service provider
+
+use Illuminate\Support\Facades\RateLimiter;
+
+RateLimiter::for('medialibrary-pro-uploads', function (Request $request) {
+    return [
+        Limit::perMinute(10)->by($request->ip()),
+    ];
+});
 ```
 
 ## Using the CSS
@@ -91,7 +173,7 @@ You have a couple of options for how you can use the UI components' CSS, dependi
 
 ### Using Laravel Mix or Webpack with css-loader
 
-You can import the built CSS in your own CSS files using `@import(vendor/spatie/laravel-medialibrary-pro/resources/js/media-library-pro-styles)`.
+You can import the built CSS in your own CSS files using `@import "vendor/spatie/laravel-medialibrary-pro/resources/js/media-library-pro-styles";`.
 
 This isn't a very pretty import, but you can make it cleaner by adding this configuration to your Webpack config:
 
@@ -135,7 +217,7 @@ mix.purgeCss({ whitelistPatterns: [/^media-library/] });
 
 You should copy the built CSS from `vendor/spatie/laravel-medialibrary-pro/resources/js/media-library-pro-styles/dist/styles.css` into your `public` folder, and then use a `link` tag in your blade/html to get it: `<link rel="stylesheet" href="{{ asset('css/main.css') }}">`.
 
-If you would like to customize the CSS we provide, head over to [the section on Customizing CSS](/docs/laravel-medialibrary/v9/handling-uploads-with-media-library-pro/customizing-css).
+If you would like to customize the CSS we provide, head over to [the section on Customizing CSS](/docs/laravel-medialibrary/v10/handling-uploads-with-media-library-pro/customizing-css).
 
 ## Usage in a frontend repository
 
@@ -192,3 +274,11 @@ import { MediaLibraryAttachment } from '@spatie/media-library-pro-vue3-attachmen
 ```
 
 You can find a list of all the packages on the repository: https://github.com/orgs/spatie/packages?repo_name=laravel-medialibrary-pro.
+
+## What happens when your license expires?
+
+A few days before a license expires, we'll send you a reminder mail to renew your license.
+
+Should you decide not to renew your license, you won't be able to use composer anymore to install this package. You won't get any new features or bug fixes.
+
+Instead, you can download a zip containing the latest version that your license covered. This can be done on  [your purchases page on spatie.be](https://spatie.be/profile/purchases). You are allowed to host this version in a private repo of your own.

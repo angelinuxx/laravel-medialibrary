@@ -1,24 +1,54 @@
 <?php
 
-namespace Spatie\MediaLibrary\Tests\Conversions\ImageGenerators;
-
 use Spatie\MediaLibrary\Conversions\ImageGenerators\Image;
-use Spatie\MediaLibrary\Tests\TestCase;
 
-class ImageTest extends TestCase
-{
-    /** @test */
-    public function it_can_convert_an_image()
-    {
+it('can convert an image', function () {
+    $imageGenerator = new Image();
+
+    $media = $this->testModelWithoutMediaConversions->addMedia($this->getTestJpg())->toMediaCollection();
+
+    expect($imageGenerator->canConvert($media))->toBeTrue();
+
+    $imageFile = $imageGenerator->convert($media->getPath());
+
+    expect(mime_content_type($imageFile))->toEqual('image/jpeg');
+    expect($media->getPath())->toEqual($imageFile);
+});
+
+it(
+    'can convert a tiff image',
+    function () {
+        //TIFF format requires imagick
+        config(['media-library.image_driver' => 'imagick']);
+
         $imageGenerator = new Image();
 
-        $media = $this->testModelWithoutMediaConversions->addMedia($this->getTestJpg())->toMediaCollection();
+        $media = $this->testModelWithoutMediaConversions->addMedia($this->getTestTiff())->toMediaCollection();
 
-        $this->assertTrue($imageGenerator->canConvert($media));
+        expect($imageGenerator->canConvert($media))->toBeTrue();
 
         $imageFile = $imageGenerator->convert($media->getPath());
 
-        $this->assertEquals('image/jpeg', mime_content_type($imageFile));
-        $this->assertEquals($imageFile, $media->getPath());
+        expect(mime_content_type($imageFile))->toEqual('image/tiff');
+        expect($media->getPath())->toEqual($imageFile);
     }
-}
+)->skip(! extension_loaded('imagick'), 'The imagick extension is not available.');
+
+it(
+    'can convert a heic image',
+    function () {
+        //heic format requires imagick
+        config(['media-library.image_driver' => 'imagick']);
+
+        $imageGenerator = new Image();
+
+        $media = $this->testModelWithoutMediaConversions->addMedia($this->getTestHeic())->toMediaCollection();
+
+        expect($imageGenerator->canConvert($media))->toBeTrue();
+
+        $imageFile = $imageGenerator->convert($media->getPath());
+
+        expect(mime_content_type($imageFile))->toEqual('image/heic');
+        expect($media->getPath())->toEqual($imageFile);
+    }
+)->skip(! extension_loaded('imagick'), 'The imagick extension is not available.');

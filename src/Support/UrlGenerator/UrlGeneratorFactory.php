@@ -15,10 +15,10 @@ class UrlGeneratorFactory
 
         static::guardAgainstInvalidUrlGenerator($urlGeneratorClass);
 
-        /** @var \Spatie\MediaLibrary\Support\UrlGenerator\UrlGenerator $urlGenerator */
+        /** @var UrlGenerator $urlGenerator */
         $urlGenerator = app($urlGeneratorClass);
 
-        $pathGenerator = PathGeneratorFactory::create();
+        $pathGenerator = PathGeneratorFactory::create($media);
 
         $urlGenerator
             ->setMedia($media)

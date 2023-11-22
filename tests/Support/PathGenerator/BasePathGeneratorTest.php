@@ -1,63 +1,76 @@
 <?php
 
-namespace Spatie\MediaLibrary\Tests\Support\PathGenerator;
-
-use Illuminate\Config\Repository;
-use Spatie\MediaLibrary\Conversions\Conversion;
 use Spatie\MediaLibrary\Conversions\ConversionCollection;
-use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Spatie\MediaLibrary\Support\UrlGenerator\DefaultUrlGenerator;
-use Spatie\MediaLibrary\Tests\TestCase;
+use Spatie\MediaLibrary\Tests\Support\PathGenerator\CustomPathGenerator;
+use Spatie\MediaLibrary\Tests\TestSupport\TestModels\TestModelWithConversion;
+use Spatie\MediaLibrary\Tests\TestSupport\TestModels\TestModelWithMorphMap;
 
-class BasePathGeneratorTest extends TestCase
-{
-    protected Repository $config;
+beforeEach(function () {
+    $this->config = app('config');
 
-    protected Media $media;
+    $this->urlGenerator = new DefaultUrlGenerator($this->config);
 
-    protected Conversion $conversion;
+    $this->pathGenerator = new CustomPathGenerator();
 
-    protected DefaultUrlGenerator $urlGenerator;
+    $this->urlGenerator->setPathGenerator($this->pathGenerator);
+});
 
-    protected CustomPathGenerator $pathGenerator;
+it('can get the custom path for media without conversions', function () {
+    $media = $this->testModel->addMedia($this->getTestFilesDirectory('test.jpg'))->toMediaCollection();
 
-    public function setUp(): void
-    {
-        parent::setUp();
+    $this->urlGenerator->setMedia($media);
 
-        $this->config = app('config');
+    $pathRelativeToRoot = md5($media->id).'/'.$media->file_name;
 
-        $this->urlGenerator = new DefaultUrlGenerator($this->config);
+    expect($this->urlGenerator->getPathRelativeToRoot())->toEqual($pathRelativeToRoot);
+});
 
-        $this->pathGenerator = new CustomPathGenerator();
+it('can get the custom path for media with conversions', function () {
+    $media = $this->testModelWithConversion->addMedia($this->getTestFilesDirectory('test.jpg'))->toMediaCollection();
+    $conversion = ConversionCollection::createForMedia($media)->getByName('thumb');
 
-        $this->urlGenerator->setPathGenerator($this->pathGenerator);
-    }
+    $this->urlGenerator
+        ->setMedia($media)
+        ->setConversion($conversion);
 
-    /** @test */
-    public function it_can_get_the_custom_path_for_media_without_conversions()
-    {
-        $media = $this->testModel->addMedia($this->getTestFilesDirectory('test.jpg'))->toMediaCollection();
+    $pathRelativeToRoot = md5($media->id).'/c/test-'.$conversion->getName().'.'.$conversion->getResultExtension($media->extension);
 
-        $this->urlGenerator->setMedia($media);
+    expect($this->urlGenerator->getPathRelativeToRoot())->toEqual($pathRelativeToRoot);
+});
 
-        $pathRelativeToRoot = md5($media->id).'/'.$media->file_name;
+it('can use a custom path generator on the model', function () {
+    config()->set('media-library.custom_path_generators', [
+        TestModelWithConversion::class => CustomPathGenerator::class,
+    ]);
 
-        $this->assertEquals($pathRelativeToRoot, $this->urlGenerator->getPathRelativeToRoot());
-    }
+    $media = $this->testModelWithConversion
+        ->addMedia($this->getTestFilesDirectory('test.jpg'))
+        ->toMediaCollection();
 
-    /** @test */
-    public function it_can_get_the_custom_path_for_media_with_conversions()
-    {
-        $media = $this->testModelWithConversion->addMedia($this->getTestFilesDirectory('test.jpg'))->toMediaCollection();
-        $conversion = ConversionCollection::createForMedia($media)->getByName('thumb');
+    expect($media->getUrl())->toEqual('/media/c4ca4238a0b923820dcc509a6f75849b/test.jpg');
+});
 
-        $this->urlGenerator
-            ->setMedia($media)
-            ->setConversion($conversion);
+it('can use a custom path generator on a morph map model', function () {
+    config()->set('media-library.custom_path_generators', [
+        'test-model-with-morph-map' => CustomPathGenerator::class,
+    ]);
 
-        $pathRelativeToRoot = md5($media->id).'/c/test-'.$conversion->getName().'.'.$conversion->getResultExtension($media->extension);
+    $media = $this->testModelWithMorphMap
+        ->addMedia($this->getTestFilesDirectory('test.jpg'))
+        ->toMediaCollection();
 
-        $this->assertEquals($pathRelativeToRoot, $this->urlGenerator->getPathRelativeToRoot());
-    }
-}
+    expect($media->getUrl())->toEqual('/media/c4ca4238a0b923820dcc509a6f75849b/test.jpg');
+});
+
+it('can use a custom path generator on a morph map model via class', function () {
+    config()->set('media-library.custom_path_generators', [
+        TestModelWithMorphMap::class => CustomPathGenerator::class,
+    ]);
+
+    $media = $this->testModelWithMorphMap
+        ->addMedia($this->getTestFilesDirectory('test.jpg'))
+        ->toMediaCollection();
+
+    expect($media->getUrl())->toEqual('/media/c4ca4238a0b923820dcc509a6f75849b/test.jpg');
+});

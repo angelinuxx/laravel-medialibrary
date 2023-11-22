@@ -6,7 +6,6 @@ use DateTimeInterface;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Http\File;
-use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Validator;
@@ -26,13 +25,14 @@ use Spatie\MediaLibrary\MediaCollections\MediaRepository;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Spatie\MediaLibrary\Support\MediaLibraryPro;
 use Spatie\MediaLibraryPro\PendingMediaLibraryRequestHandler;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 trait InteractsWithMedia
 {
-    /** @var \Spatie\MediaLibrary\Conversions\Conversion[] */
+    /** @var Conversion[] */
     public array $mediaConversions = [];
 
-    /** @var \Spatie\MediaLibrary\MediaCollections\MediaCollection[] */
+    /** @var MediaCollection[] */
     public array $mediaCollections = [];
 
     protected bool $deletePreservingMedia = false;
@@ -64,11 +64,9 @@ trait InteractsWithMedia
     /**
      * Add a file to the media library.
      *
-     * @param string|\Symfony\Component\HttpFoundation\File\UploadedFile $file
      *
-     * @return \Spatie\MediaLibrary\MediaCollections\FileAdder
      */
-    public function addMedia($file): FileAdder
+    public function addMedia(string|UploadedFile $file): FileAdder
     {
         return app(FileAdderFactory::class)->create($this, $file);
     }
@@ -81,10 +79,7 @@ trait InteractsWithMedia
     /**
      * Add a file from the given disk.
      *
-     * @param string $key
-     * @param string $disk
      *
-     * @return \Spatie\MediaLibrary\MediaCollections\FileAdder
      */
     public function addMediaFromDisk(string $key, string $disk = null): FileAdder
     {
@@ -138,14 +133,11 @@ trait InteractsWithMedia
     /**
      * Add a remote file to the media library.
      *
-     * @param string $url
-     * @param string|array ...$allowedMimeTypes
      *
-     * @return \Spatie\MediaLibrary\MediaCollections\FileAdder
      *
      * @throws \Spatie\MediaLibrary\MediaCollections\Exceptions\FileCannotBeAdded
      */
-    public function addMediaFromUrl(string $url, ...$allowedMimeTypes): FileAdder
+    public function addMediaFromUrl(string $url, array|string ...$allowedMimeTypes): FileAdder
     {
         if (! Str::startsWith($url, ['http://', 'https://'])) {
             throw InvalidUrl::doesNotStartWithProtocol($url);
@@ -178,8 +170,6 @@ trait InteractsWithMedia
      * Add a file to the media library that contains the given string.
      *
      * @param string string
-     *
-     * @return \Spatie\MediaLibrary\MediaCollections\FileAdder
      */
     public function addMediaFromString(string $text): FileAdder
     {
@@ -197,18 +187,15 @@ trait InteractsWithMedia
     /**
      * Add a base64 encoded file to the media library.
      *
-     * @param string $base64data
-     * @param string|array ...$allowedMimeTypes
      *
-     * @return \Spatie\MediaLibrary\MediaCollections\FileAdder
      * @throws \Spatie\MediaLibrary\MediaCollections\Exceptions\FileCannotBeAdded
      *
      * @throws InvalidBase64Data
      */
-    public function addMediaFromBase64(string $base64data, ...$allowedMimeTypes): FileAdder
+    public function addMediaFromBase64(string $base64data, array|string ...$allowedMimeTypes): FileAdder
     {
         // strip out data uri scheme information (see RFC 2397)
-        if (strpos($base64data, ';base64') !== false) {
+        if (str_contains($base64data, ';base64')) {
             [$_, $base64data] = explode(';', $base64data);
             [$_, $base64data] = explode(',', $base64data);
         }
@@ -240,8 +227,6 @@ trait InteractsWithMedia
      * Add a file to the media library from a stream.
      *
      * @param $stream
-     *
-     * @return \Spatie\MediaLibrary\MediaCollections\FileAdder
      */
     public function addMediaFromStream($stream): FileAdder
     {
@@ -259,11 +244,9 @@ trait InteractsWithMedia
     /**
      * Copy a file to the media library.
      *
-     * @param string|\Symfony\Component\HttpFoundation\File\UploadedFile $file
      *
-     * @return \Spatie\MediaLibrary\MediaCollections\FileAdder
      */
-    public function copyMedia($file): FileAdder
+    public function copyMedia(string|UploadedFile $file): FileAdder
     {
         return $this->addMedia($file)->preservingOriginal();
     }
@@ -271,20 +254,18 @@ trait InteractsWithMedia
     /*
      * Determine if there is media in the given collection.
      */
-    public function hasMedia(string $collectionName = 'default'): bool
+    public function hasMedia(string $collectionName = 'default', array $filters = []): bool
     {
-        return count($this->getMedia($collectionName)) ? true : false;
+        return count($this->getMedia($collectionName, $filters)) ? true : false;
     }
 
     /**
      * Get media collection by its collectionName.
      *
-     * @param string $collectionName
      * @param array|callable $filters
      *
-     * @return MediaCollections\Models\Collections\MediaCollection
      */
-    public function getMedia(string $collectionName = 'default', $filters = []): MediaCollections\Models\Collections\MediaCollection
+    public function getMedia(string $collectionName = 'default', array|callable $filters = []): MediaCollections\Models\Collections\MediaCollection
     {
         return $this->getMediaRepository()
             ->getCollection($this, $collectionName, $filters)
@@ -313,7 +294,7 @@ trait InteractsWithMedia
         $media = $this->getFirstMedia($collectionName);
 
         if (! $media) {
-            return $this->getFallbackMediaUrl($collectionName) ?: '';
+            return $this->getFallbackMediaUrl($collectionName, $conversionName) ?: '';
         }
 
         if ($conversionName !== '' && ! $media->hasGeneratedConversion($conversionName)) {
@@ -337,7 +318,7 @@ trait InteractsWithMedia
         $media = $this->getFirstMedia($collectionName);
 
         if (! $media) {
-            return $this->getFallbackMediaUrl($collectionName) ?: '';
+            return $this->getFallbackMediaUrl($collectionName, $conversionName) ?: '';
         }
 
         if ($conversionName !== '' && ! $media->hasGeneratedConversion($conversionName)) {
@@ -362,14 +343,26 @@ trait InteractsWithMedia
             ->first(fn (MediaCollection $collection) => $collection->name === $collectionName);
     }
 
-    public function getFallbackMediaUrl(string $collectionName = 'default'): string
+    public function getFallbackMediaUrl(string $collectionName = 'default', string $conversionName = ''): string
     {
-        return optional($this->getMediaCollection($collectionName))->fallbackUrl ?? '';
+        $fallbackUrls = optional($this->getMediaCollection($collectionName))->fallbackUrls;
+
+        if (in_array($conversionName, ['', 'default'], true)) {
+            return $fallbackUrls['default'] ?? '';
+        }
+
+        return $fallbackUrls[$conversionName] ?? $fallbackUrls['default'] ?? '';
     }
 
-    public function getFallbackMediaPath(string $collectionName = 'default'): string
+    public function getFallbackMediaPath(string $collectionName = 'default', string $conversionName = ''): string
     {
-        return optional($this->getMediaCollection($collectionName))->fallbackPath ?? '';
+        $fallbackPaths = optional($this->getMediaCollection($collectionName))->fallbackPaths;
+
+        if (in_array($conversionName, ['', 'default'], true)) {
+            return $fallbackPaths['default'] ?? '';
+        }
+
+        return $fallbackPaths[$conversionName] ?? $fallbackPaths['default'] ?? '';
     }
 
     /*
@@ -382,7 +375,7 @@ trait InteractsWithMedia
         $media = $this->getFirstMedia($collectionName);
 
         if (! $media) {
-            return $this->getFallbackMediaPath($collectionName) ?: '';
+            return $this->getFallbackMediaPath($collectionName, $conversionName) ?: '';
         }
 
         if ($conversionName !== '' && ! $media->hasGeneratedConversion($conversionName)) {
@@ -459,16 +452,10 @@ trait InteractsWithMedia
         return $this;
     }
 
-    /**
-     * Remove all media in the given collection except some.
-     *
-     * @param string $collectionName
-     * @param \Spatie\MediaLibrary\MediaCollections\Models\Media[]|\Illuminate\Support\Collection $excludedMedia
-     *
-     * @return $this
-     */
-    public function clearMediaCollectionExcept(string $collectionName = 'default', $excludedMedia = []): HasMedia
-    {
+    public function clearMediaCollectionExcept(
+        string $collectionName = 'default',
+        array|Collection|Media $excludedMedia = []
+    ): HasMedia {
         if ($excludedMedia instanceof Media) {
             $excludedMedia = collect()->push($excludedMedia);
         }
@@ -499,11 +486,10 @@ trait InteractsWithMedia
      * Delete the associated media with the given id.
      * You may also pass a media object.
      *
-     * @param int|\Spatie\MediaLibrary\MediaCollections\Models\Media $mediaId
      *
      * @throws \Spatie\MediaLibrary\MediaCollections\Exceptions\MediaCannotBeDeleted
      */
-    public function deleteMedia($mediaId): void
+    public function deleteMedia(int|string|Media $mediaId): void
     {
         if ($mediaId instanceof Media) {
             $mediaId = $mediaId->getKey();
@@ -553,19 +539,16 @@ trait InteractsWithMedia
         return $this->relationLoaded('media');
     }
 
-    /*
-     * Cache the media on the object.
-     */
     public function loadMedia(string $collectionName): Collection
     {
         $collection = $this->exists
-            ? $this->media
+            ? $this->loadMissing('media')->media
             : collect($this->unAttachedMediaLibraryItems)->pluck('media');
 
         $collection = new MediaCollections\Models\Collections\MediaCollection($collection);
 
         return $collection
-            ->filter(fn (Media $mediaItem) => $mediaItem->collection_name === $collectionName)
+            ->filter(fn (Media $mediaItem) => $collectionName !== '*' ? $mediaItem->collection_name === $collectionName : true)
             ->sortBy('order_column')
             ->values();
     }
@@ -630,5 +613,22 @@ trait InteractsWithMedia
         });
 
         $this->registerMediaConversions($media);
+    }
+
+    public function __sleep(): array
+    {
+        // do not serialize properties from the trait
+        return collect(parent::__sleep())
+            ->reject(
+                fn ($key) => in_array(
+                    $key,
+                    [
+                        'mediaConversions',
+                        'mediaCollections',
+                        'unAttachedMediaLibraryItems',
+                        'deletePreservingMedia',
+                    ]
+                )
+            )->toArray();
     }
 }

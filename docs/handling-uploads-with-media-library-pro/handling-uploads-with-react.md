@@ -1,17 +1,17 @@
 ---
 title: Handling uploads with React
-weight: 6
+weight: 7
 ---
 
 Media Library Pro provides beautiful UI components for React. They pack a lot of features: temporary uploads, custom property inputs, frontend validation, and robust error handling.
 
 The `MediaLibraryAttachment` component can upload one or more files with little or no extra information. The attachment component is a lightweight solution for small bits of UI like avatar fields.
 
-![Screenshot of the MediaLibraryAttachment React component](/docs/laravel-medialibrary/v9/images/pro/attachment.png)
+![Screenshot of the MediaLibraryAttachment React component](/docs/laravel-medialibrary/v10/images/pro/attachment.png)
 
 The `MediaLibraryCollection` component can upload multiple files with custom properties. The collection component shines when you need to manage media, like in backoffices.
 
-![Screenshot of the MediaLibraryCollection React component](/docs/laravel-medialibrary/v9/images/pro/collection.png)
+![Screenshot of the MediaLibraryCollection React component](/docs/laravel-medialibrary/v10/images/pro/collection.png)
 
 If neither of these fit the bill, we've exposed a set of APIs for you to be bold and [roll your own components](./creating-custom-react-components).
 
@@ -206,7 +206,7 @@ function AvatarComponent() {
 
 ### Using custom properties
 
-The Media Library supports [custom properties](/docs/laravel-medialibrary/v9/advanced-usage/using-custom-properties) to be saved on a media item. The values for these can be chosen by your users. By default, the `MediaLibraryAttachment` component doesn't show any input fields, and the `MediaLibraryCollection` component only shows a `name` field, with the option to add more fields.
+The Media Library supports [custom properties](/docs/laravel-medialibrary/v10/advanced-usage/using-custom-properties) to be saved on a media item. The values for these can be chosen by your users. By default, the `MediaLibraryAttachment` component doesn't show any input fields, and the `MediaLibraryCollection` component only shows a `name` field, with the option to add more fields.
 
 Use the `fieldsView` render prop to add some fields:
 
@@ -255,7 +255,7 @@ Use the `fieldsView` render prop to add some fields:
 
 When you add an image to your collection, it will look like this.
 
-![Screenshot of custom property](/docs/laravel-medialibrary/v9/images/pro/extra.png)
+![Screenshot of custom property](/docs/laravel-medialibrary/v10/images/pro/extra.png)
 
 ### Customizing the file properties
 
@@ -469,18 +469,18 @@ These props are available on both the `attachment` and the `collection` componen
 | initialValue             | `[]`                                                  |                                                                                                                                                                                   |
 | routePrefix              | `"media-library-pro"`                                 |                                                                                                                                                                                   |
 | uploadDomain             |                                                       | Use this if you're uploading your files to a separate (sub)domain, e.g. `files.mydomain.com` (leave out the trailing slash)                                                       |
-| validationRules          |                                                       | Refer to the ["validation rules"](#validation-rules) section                                                                                                                      |
+| validationRules          |                                                       | Refer to the ["validation rules"](#content-validation-rules) section                                                                                                                      |
 | validationErrors         |                                                       | The standard Laravel validation error object                                                                                                                                      |
 | multiple                 | `false` (always `true` in the `collection` component) | Only exists on the `attachment` components                                                                                                                                        |
 | maxItems                 | `1` when `multiple` = `false`, otherwise `undefined   |                                                                                                                                                                                   |
-| vapor                    |                                                       | Set to true if you will deploy your application to Vapor, this enables uploading of the files to S3. [Read more](#usage-with-laravel-vapor)                                       |
+| vapor                    |                                                       | Set to true if you will deploy your application to Vapor, this enables uploading of the files to S3. [Read more](#content-usage-with-laravel-vapor)                                       |
 | vaporSignedStorageUrl    | `"vapor/signed-storage-url"`                          |                                                                                                                                                                                   |
 | maxSizeForPreviewInBytes | `5242880` (5 MB)                                      | When an image is added, the component will try to generate a local preview for it. This is done on the main thread, and can freeze the component and/or page for very large files |
 | sortable                 | `true`                                                | Only exists on the `collection` components. Allows the user to drag images to change their order, this will be reflected by a zero-based `order` attribute in the value           |
-| translations             |                                                       | Refer to the ["Translations"](#translations) section                                                                                                                              |
+| translations             |                                                       | Refer to the ["Translations"](#content-translations) section                                                                                                                              |
 | fileTypeHelpText         |                                                       | Override the automatically generated helptext from `validationRules.accept`                                                                                                       |
 | setMediaLibrary          |                                                       | Used to set a reference to the MediaLibrary instance, so you can change the internal state of the component.                                                                      |
 | beforeUpload             |                                                       | A method that is run right before a temporary upload is started. You can throw an `Error` from this function with a custom validation message                                     |
 | afterUpload              |                                                       | A method that is run right after a temporary upload has completed, `{ success: true, uuid }`                                                                                      |
 | onChange                 |                                                       |                                                                                                                                                                                   |
-| onIsReadyToSubmitChange  |                                                       | Refer to the ["Checking the upload state"](#checking-the-upload-state) section                                                                                                    |
+| onIsReadyToSubmitChange  |                                                       | Refer to the ["Checking the upload state"](#content-checking-the-upload-state) section                                                                                                    |

@@ -3,6 +3,7 @@
 namespace Spatie\MediaLibrary\Conversions;
 
 use BadMethodCallException;
+use Illuminate\Support\Traits\Conditionable;
 use Spatie\Image\Manipulations;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Spatie\MediaLibrary\Support\FileNamer\FileNamer;
@@ -10,7 +11,7 @@ use Spatie\MediaLibrary\Support\FileNamer\FileNamer;
 /** @mixin \Spatie\Image\Manipulations */
 class Conversion
 {
-    protected string $name = '';
+    use Conditionable;
 
     protected FileNamer $fileNamer;
 
@@ -30,10 +31,9 @@ class Conversion
 
     protected int $pdfPageNumber = 1;
 
-    public function __construct(string $name)
-    {
-        $this->name = $name;
-
+    public function __construct(
+        protected string $name
+    ) {
         $this->manipulations = (new Manipulations())
             ->optimize(config('media-library.image_optimizers'))
             ->format(Manipulations::FORMAT_JPG);
@@ -204,8 +204,8 @@ class Conversion
     public function getResultExtension(string $originalFileExtension = ''): string
     {
         if ($this->shouldKeepOriginalImageFormat()) {
-            if (in_array(strtolower($originalFileExtension), ['jpg', 'jpeg', 'pjpg', 'png', 'gif'])) {
-                return strtolower($originalFileExtension);
+            if (in_array(strtolower($originalFileExtension), ['jpg', 'jpeg', 'pjpg', 'png', 'gif', 'webp', 'avif'])) {
+                return $originalFileExtension;
             }
         }
 

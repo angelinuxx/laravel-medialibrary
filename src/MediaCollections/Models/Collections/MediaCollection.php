@@ -6,6 +6,12 @@ use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Collection;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
+/**
+ * @template TKey of array-key
+ * @template TModel of \Spatie\MediaLibrary\MediaCollections\Models\Media
+ *
+ * @extends Collection<TKey, TModel>
+ */
 class MediaCollection extends Collection implements Htmlable
 {
     public ?string $collectionName = null;
@@ -48,8 +54,12 @@ class MediaCollection extends Collection implements Htmlable
         })->keyBy('uuid')));
     }
 
-    public function jsonSerialize()
+    public function jsonSerialize(): array
     {
+        if (config('media-library.use_default_collection_serialization')) {
+            return parent::jsonSerialize();
+        }
+
         if (! ($this->formFieldName ?? $this->collectionName)) {
             return [];
         }
@@ -66,6 +76,6 @@ class MediaCollection extends Collection implements Htmlable
                 'extension' => $media->extension,
                 'size' => $media->size,
             ];
-        })->keyBy('uuid');
+        })->keyBy('uuid')->toArray();
     }
 }

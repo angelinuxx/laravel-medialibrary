@@ -1,17 +1,17 @@
 ---
 title: Handling uploads with Vue
-weight: 5
+weight: 6
 ---
 
 Media Library Pro provides beautiful UI components for Vue 2 and Vue 3. They pack a lot of features: temporary uploads, custom property inputs, frontend validation, and robust error handling.
 
 The `MediaLibraryAttachment` component can upload one or more files with little or no extra information. The attachment component is a lightweight solution for small bits of UI like avatar fields.
 
-![Screenshot of the MediaLibraryAttachment Vue component](/docs/laravel-medialibrary/v9/images/pro/attachment.png)
+![Screenshot of the MediaLibraryAttachment Vue component](/docs/laravel-medialibrary/v10/images/pro/attachment.png)
 
 The `MediaLibraryCollection` component can upload multiple files with custom properties. The collection component shines when you need to manage media, like in backoffices.
 
-![Screenshot of the MediaLibraryCollection Vue component](/docs/laravel-medialibrary/v9/images/pro/collection.png)
+![Screenshot of the MediaLibraryCollection Vue component](/docs/laravel-medialibrary/v10/images/pro/collection.png)
 
 If neither of these fit the bill, we've exposed a set of APIs for you to be bold and [roll your own components](./creating-custom-vue-components).
 
@@ -177,6 +177,64 @@ You may also choose to import the components on the fly in a `.vue` file.
 </script>
 ```
 
+## Vite
+If you are using vite, you need to import an alias to the `vite.config.js`  and some little changes to your Vue component.
+
+```diff
+// vite.config.js
+
+import { defineConfig } from 'vite';
+import laravel from 'laravel-vite-plugin';
+import vue from '@vitejs/plugin-vue';
+
+export default defineConfig({
+    ...
+    resolve: {
+        alias: {
+            '@': '/resources/js',
++           'spatie-media-lib-pro': '/vendor/spatie/laravel-medialibrary-pro/resources/js',
+        },
+    },
+});
+```
+
+**Component changes Vue2**
+
+```diff
+...
+-    import { MediaLibraryAttachment } from "media-library-pro-vue2-attachment";
++    import { MediaLibraryAttachment } from "spatie-media-lib-pro/media-library-pro-vue2-attachment";
+-    import { MediaLibraryCollection } from "media-library-pro-vue2-collection";
++    import { MediaLibraryCollection } from "spatie-media-lib-pro/media-library-pro-vue2-collection";
+...
+```
+
+**Component changes Vue3**
+
+```diff
+...
+-    import { MediaLibraryAttachment } from "media-library-pro-vue3-attachment";
++    import { MediaLibraryAttachment } from "spatie-media-lib-pro/media-library-pro-vue3-attachment";
+-    import { MediaLibraryCollection } from "media-library-pro-vue3-collection";
++    import { MediaLibraryCollection } from "spatie-media-lib-pro/media-library-pro-vue3-collection";
+...
+```
+
+**CSS Import for SPA use**
+
+If you are using a SPA you can import the CSS into `app.js` like this:
+
+```diff
+// resources/js/app.js
+import './bootstrap';
+import '../css/app.css';
++import 'spatie-media-lib-pro/media-library-pro-styles/src/styles.css';
+...
+```
+
+If you want to import the CSS into `app.css` you can still use the import mentioned in [Customizing CSS](./customizing-css).
+
+
 ## Your first components
 
 The most basic components have a `name` prop. This name will be used to identify the media when it's uploaded to the server.
@@ -300,7 +358,7 @@ The components keep track of whether they're ready to be submitted, you can use 
 
 ### Using custom properties
 
-The Media Library supports [custom properties](/docs/laravel-medialibrary/v9/advanced-usage/using-custom-properties) to be saved on a media item. The values for these can be chosen by your users. By default, the `MediaLibraryAttachment` component doesn't show any input fields, and the `MediaLibraryCollection` component only shows a `name` field, with the option to add more fields.
+The Media Library supports [custom properties](/docs/laravel-medialibrary/v10/advanced-usage/using-custom-properties) to be saved on a media item. The values for these can be chosen by your users. By default, the `MediaLibraryAttachment` component doesn't show any input fields, and the `MediaLibraryCollection` component only shows a `name` field, with the option to add more fields.
 
 Use the `fields` scoped slot to add some fields:
 
@@ -377,7 +435,7 @@ Use the `fields` scoped slot to add some fields:
 
 When you add an image to your collection, it will look like this.
 
-![Screenshot of custom property](/docs/laravel-medialibrary/v9/images/pro/extra.png)
+![Screenshot of custom property](/docs/laravel-medialibrary/v10/images/pro/extra.png)
 
 ### Customizing the file properties
 
@@ -627,6 +685,14 @@ window.mediaLibraryTranslations = {
     somethingWentWrong: "whoops",
     remove: "delete",
 };
+```
+
+If you use the [vue-i18n](https://vue-i18n.intlify.dev/) package from intlify, you can also pass the keys from a translation file like `lang/media-library.php` by using the [`$tm`-function](https://vue-i18n.intlify.dev/api/composition.html#tm-key).
+
+```js
+<MediaLibraryCollection
+    :translations="$tm('media-library')"
+/>
 ```
 
 ## Props

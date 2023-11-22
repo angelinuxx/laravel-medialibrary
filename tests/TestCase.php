@@ -2,12 +2,11 @@
 
 namespace Spatie\MediaLibrary\Tests;
 
-use CreateMediaTable;
 use CreateTemporaryUploadsTable;
-use Dotenv\Dotenv;
-use File;
+use Dotgetenv\Dotgetenv;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\File;
 use Orchestra\Testbench\TestCase as Orchestra;
 use Spatie\MediaLibrary\MediaLibraryServiceProvider;
 use Spatie\MediaLibrary\Support\MediaLibraryPro;
@@ -15,7 +14,9 @@ use Spatie\MediaLibrary\Tests\TestSupport\TestModels\TestModel;
 use Spatie\MediaLibrary\Tests\TestSupport\TestModels\TestModelWithConversion;
 use Spatie\MediaLibrary\Tests\TestSupport\TestModels\TestModelWithConversionQueued;
 use Spatie\MediaLibrary\Tests\TestSupport\TestModels\TestModelWithConversionsOnOtherDisk;
+use Spatie\MediaLibrary\Tests\TestSupport\TestModels\TestModelWithConversionUsingModelInstance;
 use Spatie\MediaLibrary\Tests\TestSupport\TestModels\TestModelWithMorphMap;
+use Spatie\MediaLibrary\Tests\TestSupport\TestModels\TestModelWithMultipleConversions;
 use Spatie\MediaLibrary\Tests\TestSupport\TestModels\TestModelWithoutMediaConversions;
 use Spatie\MediaLibrary\Tests\TestSupport\TestModels\TestModelWithPreviewConversion;
 use Spatie\MediaLibrary\Tests\TestSupport\TestModels\TestModelWithResponsiveImages;
@@ -29,6 +30,8 @@ abstract class TestCase extends Orchestra
 
     protected TestModelWithConversion $testModelWithConversion;
 
+    protected TestModelWithMultipleConversion $testModelWithMultipleConversion;
+
     protected TestModelWithPreviewConversion $testModelWithPreviewConversion;
 
     protected TestModelWithoutMediaConversions $testModelWithoutMediaConversions;
@@ -41,7 +44,9 @@ abstract class TestCase extends Orchestra
 
     protected TestModelWithConversionsOnOtherDisk $testModelWithConversionsOnOtherDisk;
 
-    public function setUp(): void
+    protected TestModelWithConversionUsingModelInstance $testModelWithConversionUsingModelInstance;
+
+    protected function setUp(): void
     {
         $this->loadEnvironmentVariables();
 
@@ -54,21 +59,23 @@ abstract class TestCase extends Orchestra
         $this->testModel = TestModel::first();
         $this->testUnsavedModel = new TestModel();
         $this->testModelWithConversion = TestModelWithConversion::first();
+        $this->testModelWithMultipleConversions = TestModelWithMultipleConversions::first();
         $this->testModelWithPreviewConversion = TestModelWithPreviewConversion::first();
         $this->testModelWithConversionQueued = TestModelWithConversionQueued::first();
         $this->testModelWithoutMediaConversions = TestModelWithoutMediaConversions::first();
         $this->testModelWithMorphMap = TestModelWithMorphMap::first();
         $this->testModelWithResponsiveImages = TestModelWithResponsiveImages::first();
         $this->testModelWithConversionsOnOtherDisk = TestModelWithConversionsOnOtherDisk::first();
+        $this->testModelWithConversionUsingModelInstance = TestModelWithConversionUsingModelInstance::first();
     }
 
     protected function loadEnvironmentVariables()
     {
-        if (! file_exists(__DIR__.'/../.env')) {
+        if (! file_exists(__DIR__.'/../.getenv')) {
             return;
         }
 
-        $dotEnv = Dotenv::createImmutable(__DIR__.'/..');
+        $dotEnv = Dotgetenv::createImmutable(__DIR__.'/..');
 
         $dotEnv->load();
     }
@@ -81,7 +88,7 @@ abstract class TestCase extends Orchestra
     protected function getPackageProviders($app)
     {
         $serviceProviders = [
-            MedialibraryServiceProvider::class,
+            MediaLibraryServiceProvider::class,
         ];
 
         return $serviceProviders;
@@ -90,7 +97,7 @@ abstract class TestCase extends Orchestra
     /**
      * @param \Illuminate\Foundation\Application $app
      */
-    protected function getEnvironmentSetUp($app)
+    public function getEnvironmentSetUp($app)
     {
         $this->initializeDirectory($this->getTempDirectory());
 
@@ -143,9 +150,9 @@ abstract class TestCase extends Orchestra
             (new CreateTemporaryUploadsTable())->up();
         }
 
-        include_once(__DIR__.'/../database/migrations/create_media_table.php.stub');
+        $mediaTableMigration = require(__DIR__.'/../database/migrations/create_media_table.php.stub');
 
-        (new CreateMediaTable())->up();
+        $mediaTableMigration->up();
     }
 
     protected function setUpTempTestFiles()
@@ -171,17 +178,17 @@ abstract class TestCase extends Orchestra
         return __DIR__.$suffix;
     }
 
-    public function getTempDirectory($suffix = ''): string
+    public function getTempDirectory(string $suffix = ''): string
     {
         return __DIR__.'/TestSupport/temp'.($suffix == '' ? '' : '/'.$suffix);
     }
 
-    public function getMediaDirectory($suffix = ''): string
+    public function getMediaDirectory(string $suffix = ''): string
     {
         return $this->getTempDirectory().'/media'.($suffix == '' ? '' : '/'.$suffix);
     }
 
-    public function getTestFilesDirectory($suffix = ''): string
+    public function getTestFilesDirectory(string $suffix = ''): string
     {
         return $this->getTempDirectory().'/testfiles'.($suffix == '' ? '' : '/'.$suffix);
     }
@@ -206,6 +213,11 @@ abstract class TestCase extends Orchestra
         return $this->getTestFilesDirectory('uppercaseExtensionTest.PNG');
     }
 
+    public function getTestTiff(): string
+    {
+        return $this->getTestFilesDirectory('test.tiff');
+    }
+
     public function getTestWebm(): string
     {
         return $this->getTestFilesDirectory('test.webm');
@@ -224,6 +236,16 @@ abstract class TestCase extends Orchestra
     public function getTestWebp(): string
     {
         return $this->getTestFilesDirectory('test.webp');
+    }
+
+    public function getTestAvif(): string
+    {
+        return $this->getTestFilesDirectory('test.avif');
+    }
+
+    public function getTestHeic(): string
+    {
+        return $this->getTestFilesDirectory('test.heic');
     }
 
     public function getTestMp4(): string

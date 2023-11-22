@@ -18,7 +18,10 @@ class RegenerateCommand extends Command
 
     protected $signature = 'media-library:regenerate {modelType?} {--ids=*}
     {--only=* : Regenerate specific conversions}
+    {--starting-from-id= : Regenerate media with an id equal to or higher than the provided value}
+    {--X|exclude-starting-id : Exclude the provided id when regenerating from a specific id}
     {--only-missing : Regenerate only missing conversions}
+    {--with-responsive-images : Regenerate responsive images}
     {--force : Force the operation to run when in production}';
 
     protected $description = 'Regenerate the derived images of media';
@@ -49,6 +52,7 @@ class RegenerateCommand extends Command
                     $media,
                     Arr::wrap($this->option('only')),
                     $this->option('only-missing'),
+                    $this->option('with-responsive-images')
                 );
             } catch (Exception $exception) {
                 $this->errorMessages[$media->getKey()] = $exception->getMessage();
@@ -67,23 +71,33 @@ class RegenerateCommand extends Command
             }
         }
 
+        $this->newLine(2);
+
         $this->info('All done!');
     }
 
     public function getMediaToBeRegenerated(): Collection
     {
-        $modelType = $this->argument('modelType') ?? '';
-        $mediaIds = $this->getMediaIds();
+        // Get this arg first as it can also be passed to the greater-than-id branch
+        $modelType = $this->argument('modelType');
 
-        if ($modelType === '' && count($mediaIds) === 0) {
-            return $this->mediaRepository->all();
+        $startingFromId = (int)$this->option('starting-from-id');
+        if ($startingFromId !== 0) {
+            $excludeStartingId = (bool) $this->option('exclude-starting-id') ?: false;
+
+            return $this->mediaRepository->getByIdGreaterThan($startingFromId, $excludeStartingId, is_string($modelType) ? $modelType : '');
         }
 
-        if (! count($mediaIds)) {
+        if (is_string($modelType)) {
             return $this->mediaRepository->getByModelType($modelType);
         }
 
-        return $this->mediaRepository->getByIds($mediaIds);
+        $mediaIds = $this->getMediaIds();
+        if (count($mediaIds) > 0) {
+            return $this->mediaRepository->getByIds($mediaIds);
+        }
+
+        return $this->mediaRepository->all();
     }
 
     protected function getMediaIds(): array
@@ -91,11 +105,11 @@ class RegenerateCommand extends Command
         $mediaIds = $this->option('ids');
 
         if (! is_array($mediaIds)) {
-            $mediaIds = explode(',', $mediaIds);
+            $mediaIds = explode(',', (string) $mediaIds);
         }
 
-        if (count($mediaIds) === 1 && Str::contains($mediaIds[0], ',')) {
-            $mediaIds = explode(',', $mediaIds[0]);
+        if (count($mediaIds) === 1 && Str::contains((string) $mediaIds[0], ',')) {
+            $mediaIds = explode(',', (string) $mediaIds[0]);
         }
 
         return $mediaIds;

@@ -3,19 +3,15 @@ title: Base installation
 weight: 4
 ---
 
-Media library can be installed via Composer:
+Media Library can be installed via Composer:
 
 If you only use the base package issue this command:
 
 ```bash
-composer require "spatie/laravel-medialibrary:^9.0.0"
+composer require "spatie/laravel-medialibrary:^10.0.0"
 ```
 
-If you have a license for media library pro, you should use `laravel-media-library-pro`
-
-```bash
-composer require spatie/laravel-medialibrary-pro
-```
+If you have a license for Media Library Pro, you should install `spatie/laravel-media-library-pro` instead. Please refer to our [Media Library Pro installation instructions](https://spatie.be/docs/laravel-medialibrary/v10/handling-uploads-with-media-library-pro/installation) to continue.
 
 ## Preparing the database
 
@@ -55,6 +51,12 @@ return [
      * Adding a larger file will result in an exception.
      */
     'max_file_size' => 1024 * 1024 * 10,
+    
+    /*
+     * This queue connection will be used to generate derived and responsive images.
+     * Leave empty to use the default queue connection.
+     */
+    'queue_connection_name' => '',
 
     /*
      * This queue will be used to generate derived and responsive images.
@@ -140,10 +142,20 @@ return [
             '-O3', // this produces the slowest but best results
         ],
         Spatie\ImageOptimizer\Optimizers\Cwebp::class => [
-                '-m 6', // for the slowest compression method in order to get the best compression.
-                '-pass 10', // for maximizing the amount of analysis pass.
-                '-mt', // multithreading for some speed improvements.
-                '-q 90', //quality factor that brings the least noticeable changes.
+            '-m 6', // for the slowest compression method in order to get the best compression.
+            '-pass 10', // for maximizing the amount of analysis pass.
+            '-mt', // multithreading for some speed improvements.
+            '-q 90', //quality factor that brings the least noticeable changes.
+        ],
+        Spatie\ImageOptimizer\Optimizers\Avifenc::class => [
+            '-a cq-level=23', // constant quality level, lower values mean better quality and greater file size (0-63).
+            '-j all', // number of jobs (worker threads, "all" uses all available cores).
+            '--min 0', // min quantizer for color (0-63).
+            '--max 63', // max quantizer for color (0-63).
+            '--minalpha 0', // min quantizer for alpha (0-63).
+            '--maxalpha 63', // max quantizer for alpha (0-63).
+            '-a end-usage=q', // rate control mode set to Constant Quality mode.
+            '-a tune=ssim', // SSIM as tune the encoder for distortion metric.
         ],
     ],
 
@@ -153,6 +165,7 @@ return [
     'image_generators' => [
         Spatie\MediaLibrary\Conversions\ImageGenerators\Image::class,
         Spatie\MediaLibrary\Conversions\ImageGenerators\Webp::class,
+        Spatie\MediaLibrary\Conversions\ImageGenerators\Avif::class,
         Spatie\MediaLibrary\Conversions\ImageGenerators\Pdf::class,
         Spatie\MediaLibrary\Conversions\ImageGenerators\Svg::class,
         Spatie\MediaLibrary\Conversions\ImageGenerators\Video::class,
@@ -214,7 +227,7 @@ return [
          * images. By default we optimize for filesize and create variations that each are 20%
          * smaller than the previous one. More info in the documentation.
          *
-         * https://docs.spatie.be/laravel-medialibrary/v9/advanced-usage/generating-responsive-images
+         * https://docs.spatie.be/laravel-medialibrary/v10/advanced-usage/generating-responsive-images
          */
         'width_calculator' => Spatie\MediaLibrary\ResponsiveImages\WidthCalculator\FileSizeOptimizedWidthCalculator::class,
 
@@ -248,6 +261,12 @@ return [
      * More info: https://css-tricks.com/native-lazy-loading/
      */
     'default_loading_attribute_value' => null,
+    
+     /*
+     * You can specify a prefix for that is used for storing all media.
+     * If you set this to `/my-subdir`, all your media will be stored in a `/my-subdir` directory.
+     */
+      'prefix' => env('MEDIA_PREFIX', ''),
 ];
 ```
 
@@ -282,7 +301,7 @@ return [
 ];
 ```
 
-Want to use S3? Then follow Laravel's instructions on [how to add the S3 Flysystem driver](https://laravel.com/docs/filesystem#configuration).
+Want to use S3? Then follow Laravel's instructions on [how to add the S3 Flysystem driver](https://laravel.com/docs/filesystem#configuration). If possible, we recommend [using a remote filesystem like S3](https://twitter.com/taylorotwell/status/1153326292412129280) instead of your local filesystem to prevent security issues.
 
 ## Setting up a queue
 
@@ -290,19 +309,27 @@ If you are planning on working with image manipulations it's recommended to conf
 
 ### Setting up optimization tools
 
-Media library will use these tools to [optimize converted images](https://docs.spatie.be/laravel-medialibrary/v9/converting-images/optimizing-converted-images) if they are present on your system:
+Media library will use these tools to [optimize converted images](https://docs.spatie.be/laravel-medialibrary/v10/converting-images/optimizing-converted-images) if they are present on your system:
 
 - [JpegOptim](http://freecode.com/projects/jpegoptim)
 - [Optipng](http://optipng.sourceforge.net/)
 - [Pngquant 2](https://pngquant.org/)
 - [SVGO](https://github.com/svg/svgo)
 - [Gifsicle](http://www.lcdf.org/gifsicle/)
+- [Avifenc](https://github.com/AOMediaCodec/libavif/blob/main/doc/avifenc.1.md)
 
 Here's how to install all the optimizers on Ubuntu:
 
 ```bash
-sudo apt install jpegoptim optipng pngquant gifsicle
+sudo apt install jpegoptim optipng pngquant gifsicle libavif-bin
 npm install -g svgo
+```
+
+If you don't want to install `npm` on your Ubuntu server, you can use `snap` which is installed by default:
+
+```bash
+sudo apt install jpegoptim optipng pngquant gifsicle libavif-bin
+sudo snap install svgo
 ```
 
 Here's how to install the binaries on MacOS (using [Homebrew](https://brew.sh/)):
@@ -313,12 +340,13 @@ brew install optipng
 brew install pngquant
 brew install svgo
 brew install gifsicle
+brew install libavif
 ```
 
 ## Installing Media Library Pro
 
-[Media Library Pro](http://medialibrary.pro) is an optional add-on package that offers Blade, Vue, and React components to upload files to your application. It [integrates](https://spatie.be/docs/laravel-medialibrary/v9/handling-uploads-with-media-library-pro/introduction) beautifully with the laravel-medialibrary.
+[Media Library Pro](http://medialibrary.pro) is an optional add-on package that offers Blade, Vue, and React components to upload files to your application. It [integrates](https://spatie.be/docs/laravel-medialibrary/v10/handling-uploads-with-media-library-pro/introduction) beautifully with the laravel-medialibrary.
 
 You can buy a license for Media Library Pro on [the product page](https://spatie.be/products/media-library-pro) at spatie.be.
 
-To install Media Library Pro, you should follow [these instructions](https://spatie.be/docs/laravel-medialibrary/v9/handling-uploads-with-media-library-pro/installation).
+To install Media Library Pro, you should follow [these instructions](https://spatie.be/docs/laravel-medialibrary/v10/handling-uploads-with-media-library-pro/installation).

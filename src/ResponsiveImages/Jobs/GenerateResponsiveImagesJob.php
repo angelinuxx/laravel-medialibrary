@@ -15,16 +15,13 @@ class GenerateResponsiveImagesJob implements ShouldQueue
     use SerializesModels;
     use Queueable;
 
-    protected Media $media;
-
-    public function __construct(Media $media)
+    public function __construct(protected Media $media)
     {
-        $this->media = $media;
     }
 
     public function handle(): bool
     {
-        /** @var \Spatie\MediaLibrary\ResponsiveImages\ResponsiveImageGenerator $responsiveImageGenerator */
+        /** @var ResponsiveImageGenerator $responsiveImageGenerator */
         $responsiveImageGenerator = app(ResponsiveImageGenerator::class);
 
         $responsiveImageGenerator->generateResponsiveImages($this->media);

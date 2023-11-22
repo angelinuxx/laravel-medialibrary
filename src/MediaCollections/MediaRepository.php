@@ -12,37 +12,37 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class MediaRepository
 {
-    protected Media $model;
-
-    public function __construct(Media $model)
-    {
-        $this->model = $model;
+    public function __construct(
+        protected Media $model
+    ) {
     }
 
     /**
      * Get all media in the collection.
      *
-     * @param \Spatie\MediaLibrary\HasMedia $model
-     * @param string $collectionName
      * @param array|callable $filter
      *
-     * @return \Illuminate\Support\Collection
      */
-    public function getCollection(HasMedia $model, string $collectionName, $filter = []): Collection
-    {
+    public function getCollection(
+        HasMedia $model,
+        string $collectionName,
+        array|callable $filter = []
+    ): Collection {
         return $this->applyFilterToMediaCollection($model->loadMedia($collectionName), $filter);
     }
 
     /**
      * Apply given filters on media.
      *
-     * @param \Illuminate\Support\Collection $media
+     * @param Collection $media
      * @param array|callable $filter
      *
-     * @return \Illuminate\Support\Collection
+     * @return Collection
      */
-    protected function applyFilterToMediaCollection(Collection $media, $filter): Collection
-    {
+    protected function applyFilterToMediaCollection(
+        Collection $media,
+        array|callable $filter
+    ): Collection {
         if (is_array($filter)) {
             $filter = $this->getDefaultFilterFunction($filter);
         }
@@ -65,6 +65,14 @@ class MediaRepository
         return $this->query()->whereIn($this->model->getKeyName(), $ids)->get();
     }
 
+    public function getByIdGreaterThan(int $startingFromId, bool $excludeStartingId = false, string $modelType = ''): DbCollection
+    {
+        return $this->query()
+            ->where($this->model->getKeyName(), $excludeStartingId ? '>' : '>=', $startingFromId)
+            ->when($modelType !== '', fn (Builder $q) => $q->where('model_type', $modelType))
+            ->get();
+    }
+
     public function getByModelTypeAndCollectionName(string $modelType, string $collectionName): DbCollection
     {
         return $this->query()
@@ -80,9 +88,31 @@ class MediaRepository
             ->get();
     }
 
+    public function getOrphans(): DbCollection
+    {
+        return $this->orphansQuery()
+            ->get();
+    }
+
+    public function getOrphansByCollectionName(string $collectionName): DbCollection
+    {
+        return $this->orphansQuery()
+            ->where('collection_name', $collectionName)
+            ->get();
+    }
+
     protected function query(): Builder
     {
         return $this->model->newQuery();
+    }
+
+    protected function orphansQuery(): Builder
+    {
+        return $this->query()
+            ->whereDoesntHave(
+                'model',
+                fn (Builder $q) => $q->hasMacro('withTrashed') ? $q->withTrashed() : $q,
+            );
     }
 
     protected function getDefaultFilterFunction(array $filters): Closure

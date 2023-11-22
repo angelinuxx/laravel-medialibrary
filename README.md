@@ -3,11 +3,11 @@
 # Associate files with Eloquent models
 
 [![Latest Version](https://img.shields.io/github/release/spatie/laravel-medialibrary.svg?style=flat-square)](https://github.com/spatie/laravel-medialibrary/releases)
-![GitHub Workflow Status](https://img.shields.io/github/workflow/status/spatie/laravel-medialibrary/run-tests?label=tests)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/spatie/laravel-medialibrary/run-tests.yml?branch=master&style=flat-square&label=tests)
 [![Total Downloads](https://img.shields.io/packagist/dt/spatie/laravel-medialibrary.svg?style=flat-square)](https://packagist.org/packages/spatie/laravel-medialibrary)
 
 This package can associate all sorts of files with Eloquent models. It provides a
-simple API to work with. To learn all about it, head over to [the extensive documentation](https://docs.spatie.be/laravel-medialibrary).
+simple API to work with. To learn all about it, head over to [the extensive documentation](https://spatie.be/docs/laravel-medialibrary).
 
 Here are a few short examples of what you can do:
 
@@ -45,18 +45,30 @@ We highly appreciate you sending us a postcard from your hometown, mentioning wh
 
 ## Documentation
 
-You'll find the documentation on [https://docs.spatie.be/laravel-medialibrary](https://docs.spatie.be/laravel-medialibrary).
+You'll find the documentation on [https://spatie.be/docs/laravel-medialibrary](https://spatie.be/docs/laravel-medialibrary/v10).
 
 Find yourself stuck using the package? Found a bug? Do you have general questions or suggestions for improving the media library? Feel free to [create an issue on GitHub](https://github.com/spatie/laravel-medialibrary/issues), we'll try to address it as soon as possible.
 
-If you've found a bug regarding security please mail [freek@spatie.be](mailto:freek@spatie.be) instead of using the issue tracker.
+If you've found a bug regarding security please mail [security@spatie.be](mailto:security@spatie.be) instead of using the issue tracker.
 
 ## Testing
 
 You can run the tests with:
 
 ```bash
-vendor/bin/phpunit
+./vendor/bin/pest
+```
+
+You can run the Github actions locally with [act](https://github.com/nektos/act). You have to use a [custom image](https://github.com/shivammathur/setup-php#local-testing-setup) for the ubuntu-latest platform to get PHP up and running properly. To run the tests locally, run:
+
+```bash
+act -P ubuntu-latest=shivammathur/node:latest
+```
+
+To run a specific workflow, for example `run-tests.yml` run:
+
+```bash
+act -P ubuntu-latest=shivammathur/node:latest -j run-tests
 ```
 
 ## Upgrading
@@ -69,11 +81,11 @@ Please see [CHANGELOG](CHANGELOG.md) for more information what has changed recen
 
 ## Contributing
 
-Please see [CONTRIBUTING](CONTRIBUTING.md) for details.
+Please see [CONTRIBUTING](https://github.com/spatie/.github/blob/main/CONTRIBUTING.md) for details.
 
 ## Security
 
-If you discover any security related issues, please email [freek@spatie.be](mailto:freek@spatie.be) instead of using the issue tracker.
+If you discover any security related issues, please email [security@spatie.be](mailto:security@spatie.be) instead of using the issue tracker.
 
 ## Credits
 

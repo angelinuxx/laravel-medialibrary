@@ -20,11 +20,11 @@ class Pdf extends ImageGenerator
 
     public function requirementsAreInstalled(): bool
     {
-        if (! class_exists('Imagick')) {
+        if (! class_exists(\Imagick::class)) {
             return false;
         }
 
-        if (! class_exists('\\Spatie\\PdfToImage\\Pdf')) {
+        if (! class_exists(\Spatie\PdfToImage\Pdf::class)) {
             return false;
         }
 
@@ -33,7 +33,7 @@ class Pdf extends ImageGenerator
 
     public function supportedExtensions(): Collection
     {
-        return collect('pdf');
+        return collect(['pdf']);
     }
 
     public function supportedMimeTypes(): Collection

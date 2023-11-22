@@ -3,13 +3,16 @@
 namespace Spatie\MediaLibrary\MediaCollections\Models;
 
 use DateTimeInterface;
+use Illuminate\Contracts\Mail\Attachable;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Database\Eloquent\Builder;
-use Jenssegers\Mongodb\Eloquent\Model;
-use Jenssegers\Mongodb\Eloquent\HybridRelations;
+use Mongodb\Laravel\Eloquent\Model;
+use Mongodb\Laravel\Eloquent\HybridRelations;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Mail\Attachment;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Spatie\MediaLibrary\Conversions\Conversion;
@@ -26,10 +29,35 @@ use Spatie\MediaLibrary\ResponsiveImages\RegisteredResponsiveImages;
 use Spatie\MediaLibrary\Support\File;
 use Spatie\MediaLibrary\Support\MediaLibraryPro;
 use Spatie\MediaLibrary\Support\TemporaryDirectory;
+use Spatie\MediaLibrary\Support\UrlGenerator\UrlGenerator;
 use Spatie\MediaLibrary\Support\UrlGenerator\UrlGeneratorFactory;
 use Spatie\MediaLibraryPro\Models\TemporaryUpload;
 
-class Media extends Model implements Responsable, Htmlable
+/**
+ * @property string $uuid
+ * @property string $model_type
+ * @property string|int $model_id
+ * @property string $collection_name
+ * @property string $name
+ * @property string $file_name
+ * @property string $mime_type
+ * @property string $disk
+ * @property string $conversions_disk
+ * @property string $type
+ * @property string $extension
+ * @property-read string $humanReadableSize
+ * @property-read string $preview_url
+ * @property-read string $original_url
+ * @property int $size
+ * @property ?int $order_column
+ * @property array $manipulations
+ * @property array $custom_properties
+ * @property array $generated_conversions
+ * @property array $responsive_images
+ * @property-read ?\Illuminate\Support\Carbon $created_at
+ * @property-read ?\Illuminate\Support\Carbon $updated_at
+ */
+class Media extends Model implements Responsable, Htmlable, Attachable
 {
     use IsSorted;
     use CustomMediaProperties;
@@ -75,27 +103,80 @@ class Media extends Model implements Responsable, Htmlable
 
     public function getTemporaryUrl(DateTimeInterface $expiration, string $conversionName = '', array $options = []): string
     {
-        $urlGenerator = UrlGeneratorFactory::createForMedia($this, $conversionName);
+        $urlGenerator = $this->getUrlGenerator($conversionName);
 
         return $urlGenerator->getTemporaryUrl($expiration, $options);
     }
 
     public function getPath(string $conversionName = ''): string
     {
-        $urlGenerator = UrlGeneratorFactory::createForMedia($this, $conversionName);
+        $urlGenerator = $this->getUrlGenerator($conversionName);
 
         return $urlGenerator->getPath();
     }
 
-    public function getTypeAttribute(): string
+    public function getPathRelativeToRoot(string $conversionName = ''): string
     {
-        $type = $this->getTypeFromExtension();
+        return $this->getUrlGenerator($conversionName)->getPathRelativeToRoot();
+    }
 
-        if ($type !== self::TYPE_OTHER) {
-            return $type;
+    public function getUrlGenerator(string $conversionName): UrlGenerator
+    {
+        return UrlGeneratorFactory::createForMedia($this, $conversionName);
+    }
+
+    public function getAvailableUrl(array $conversionNames): string
+    {
+        foreach ($conversionNames as $conversionName) {
+            if (! $this->hasGeneratedConversion($conversionName)) {
+                continue;
+            }
+
+            return $this->getUrl($conversionName);
         }
 
-        return $this->getTypeFromMime();
+        return $this->getUrl();
+    }
+
+    public function getAvailableFullUrl(array $conversionNames): string
+    {
+        foreach ($conversionNames as $conversionName) {
+            if (! $this->hasGeneratedConversion($conversionName)) {
+                continue;
+            }
+
+            return $this->getFullUrl($conversionName);
+        }
+
+        return $this->getFullUrl();
+    }
+
+    public function getAvailablePath(array $conversionNames): string
+    {
+        foreach ($conversionNames as $conversionName) {
+            if (! $this->hasGeneratedConversion($conversionName)) {
+                continue;
+            }
+
+            return $this->getPath($conversionName);
+        }
+
+        return $this->getPath();
+    }
+
+    protected function type(): Attribute
+    {
+        return Attribute::get(
+            function () {
+                $type = $this->getTypeFromExtension();
+
+                if ($type !== self::TYPE_OTHER) {
+                    return $type;
+                }
+
+                return $this->getTypeFromMime();
+            }
+        );
     }
 
     public function getTypeFromExtension(): string
@@ -116,14 +197,14 @@ class Media extends Model implements Responsable, Htmlable
             : static::TYPE_OTHER;
     }
 
-    public function getExtensionAttribute(): string
+    protected function extension(): Attribute
     {
-        return pathinfo($this->file_name, PATHINFO_EXTENSION);
+        return Attribute::get(fn () => pathinfo($this->file_name, PATHINFO_EXTENSION));
     }
 
-    public function getHumanReadableSizeAttribute(): string
+    protected function humanReadableSize(): Attribute
     {
-        return File::getHumanReadableSize($this->size);
+        return Attribute::get(fn () => File::getHumanReadableSize($this->size));
     }
 
     public function getDiskDriverName(): string
@@ -151,13 +232,12 @@ class Media extends Model implements Responsable, Htmlable
      *
      * @return mixed
      */
-    public function getCustomProperty(string $propertyName, $default = null)
+    public function getCustomProperty(string $propertyName, $default = null): mixed
     {
         return Arr::get($this->custom_properties, $propertyName, $default);
     }
 
     /**
-     * @param string $name
      * @param mixed $value
      *
      * @return $this
@@ -205,7 +285,7 @@ class Media extends Model implements Responsable, Htmlable
 
         $this->generated_conversions = $generatedConversions;
 
-        $this->save();
+        $this->saveOrTouch();
 
         return $this;
     }
@@ -218,7 +298,7 @@ class Media extends Model implements Responsable, Htmlable
 
         $this->generated_conversions = $generatedConversions;
 
-        $this->save();
+        $this->saveOrTouch();
 
         return $this;
     }
@@ -230,14 +310,23 @@ class Media extends Model implements Responsable, Htmlable
         return $generatedConversions[$conversionName] ?? false;
     }
 
-
     public function toResponse($request)
+    {
+        return $this->buildResponse($request, 'attachment');
+    }
+
+    public function toInlineResponse($request)
+    {
+        return $this->buildResponse($request, 'inline');
+    }
+
+    private function buildResponse($request, string $contentDispositionType)
     {
         $downloadHeaders = [
             'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
             'Content-Type' => $this->mime_type,
             'Content-Length' => $this->size,
-            'Content-Disposition' => 'attachment; filename="' . $this->file_name . '"',
+            'Content-Disposition' => $contentDispositionType . '; filename="' . $this->file_name . '"',
             'Pragma' => 'public',
         ];
 
@@ -267,32 +356,36 @@ class Media extends Model implements Responsable, Htmlable
         return $this->responsiveImages($conversionName)->getSrcset();
     }
 
-    public function getPreviewUrlAttribute()
+    protected function previewUrl(): Attribute
     {
-        return $this->hasGeneratedConversion('preview') ? $this->getUrl('preview') : '';
+        return Attribute::get(
+            fn () => $this->hasGeneratedConversion('preview') ? $this->getUrl('preview') : '',
+        );
     }
 
-    public function getOriginalUrlAttribute()
+    protected function originalUrl(): Attribute
     {
-        return $this->getUrl();
+        return Attribute::get(fn () => $this->getUrl());
     }
 
+    /** @param string $collectionName */
     public function move(HasMedia $model, $collectionName = 'default', string $diskName = '', string $fileName = ''): self
     {
         $newMedia = $this->copy($model, $collectionName, $diskName, $fileName);
 
-        $this->delete();
+        $this->forceDelete();
 
         return $newMedia;
     }
 
+    /** @param string $collectionName */
     public function copy(HasMedia $model, $collectionName = 'default', string $diskName = '', string $fileName = ''): self
     {
         $temporaryDirectory = TemporaryDirectory::create();
 
         $temporaryFile = $temporaryDirectory->path('/') . DIRECTORY_SEPARATOR . $this->file_name;
 
-        /** @var \Spatie\MediaLibrary\MediaCollections\Filesystem $filesystem */
+        /** @var Filesystem $filesystem */
         $filesystem = app(Filesystem::class);
 
         $filesystem->copyFromMediaLibrary($this, $temporaryFile);
@@ -302,11 +395,9 @@ class Media extends Model implements Responsable, Htmlable
             ->usingName($this->name)
             ->setOrder($this->order_column)
             ->withCustomProperties($this->custom_properties);
-
         if ($fileName !== '') {
             $fileAdder->usingFileName($fileName);
         }
-
         $newMedia = $fileAdder
             ->toMediaCollection($collectionName, $diskName);
 
@@ -322,7 +413,7 @@ class Media extends Model implements Responsable, Htmlable
 
     public function stream()
     {
-        /** @var \Spatie\MediaLibrary\MediaCollections\Filesystem $filesystem */
+        /** @var Filesystem $filesystem */
         $filesystem = app(Filesystem::class);
 
         return $filesystem->getStream($this);
@@ -364,5 +455,30 @@ class Media extends Model implements Responsable, Htmlable
                 fn (Builder $builder) => $builder->where('session_id', session()->getId())
             )
             ->get();
+    }
+
+    public function mailAttachment(string $conversion = ''): Attachment
+    {
+        $attachment = Attachment::fromStorageDisk($this->disk, $this->getPathRelativeToRoot($conversion))->as($this->file_name);
+
+        if ($this->mime_type) {
+            $attachment->withMime($this->mime_type);
+        }
+
+        return $attachment;
+    }
+
+    public function toMailAttachment(): Attachment
+    {
+        return $this->mailAttachment();
+    }
+
+    protected function saveOrTouch(): bool
+    {
+        if (! $this->exists || $this->isDirty()) {
+            return $this->save();
+        }
+
+        return $this->touch();
     }
 }
