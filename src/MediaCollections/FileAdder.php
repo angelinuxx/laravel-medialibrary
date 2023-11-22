@@ -3,7 +3,7 @@
 namespace Spatie\MediaLibrary\MediaCollections;
 
 use Closure;
-use Jenssegers\Mongodb\Eloquent\Model;
+use Mongodb\Laravel\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Traits\Macroable;
 use Spatie\MediaLibrary\Conversions\ImageGenerators\Image as ImageGenerator;
